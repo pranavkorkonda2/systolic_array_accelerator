@@ -18,8 +18,6 @@
 // Additional Comments:
 // 
 //////////////////////////////////////////////////////////////////////////////////
-
-
 module systolic_compute_mesh #(
 parameter N = 4,
 parameter DATA_W = 8,
@@ -27,62 +25,81 @@ parameter ACC_W = 16
 )(
 input wire CLK,
 input wire RST,
-input wire [N-1:0] valid_in, // This is our valid signals for rows/col
-input wire [N*DATA_W-1:0] A_in, // N element left boundary input
-input wire [N*DATA_W-1:0] B_in, // N element top boundary input
+input wire [N-1:0] valid_in,
+input wire [N*DATA_W-1:0] A_in,
+input wire [N*DATA_W-1:0] B_in,
 
 output wire [N*DATA_W-1:0] A_out,
 output wire [N*DATA_W-1:0] B_out,
 output wire [N*ACC_W-1:0] acc_out,
 output wire [N-1:0] valid_out
 );
-// internal interconnect wires
-//  so, adding +1 to the dimensions allows easy boundary assignment
+
+// Internal interconnect wires
 wire [DATA_W-1:0] A_w [0:N-1][0:N];
 wire [DATA_W-1:0] B_w [0:N][0:N-1];
 wire [ACC_W-1:0] acc_w [0:N-1][0:N-1];
-wire valid_w [0:N-1][0:N-1];
-// boundary conditions: map top-level inputs/outputs to wire the arrays
+
+// N+1 columns because each PE forwards valid to the next PE
+wire valid_w [0:N-1][0:N];
 
 genvar row, col;
 generate
-for (row = 0; row < N; row = row + 1) begin: map_row_inputs_to_mesh
+// Left boundary inputs and right boundary outputs
+for (row = 0; row < N; row = row + 1) begin : map_row_inputs_to_mesh
     assign A_w[row][0] = A_in[row*DATA_W +: DATA_W];
     assign A_out[row*DATA_W +: DATA_W] = A_w[row][N];
 end
-for (col = 0; col < N; col = col + 1) begin: map_col_inputs_to_mesh
+
+// Top boundary inputs and bottom boundary outputs
+for (col = 0; col < N; col = col + 1) begin : map_col_inputs_to_mesh
     assign B_w[0][col] = B_in[col*DATA_W +: DATA_W];
     assign B_out[col*DATA_W +: DATA_W] = B_w[N][col];
 end
+
+// Valid enters on left edge and propagates through row
+for (row = 0; row < N; row = row + 1) begin : map_valid_inputs_to_mesh
+    assign valid_w[row][0] = valid_in[row];
+end
+
 endgenerate
 
-// 2D mesh hardware generation
+
+// N x N processing element mesh
+
 generate
-    for (row = 0;  row < N; row = row + 1) begin: gen_row
-        for (col = 0; col < N; col = col + 1) begin: gen_col
+    for (row = 0; row < N; row = row + 1) begin : gen_row
+        for (col = 0; col < N; col = col + 1) begin : gen_col
             systolic_mac_pe #(
-                 .DATA_W(DATA_W),
-                 .ACC_W(ACC_W)
-                 )
+                .DATA_W(DATA_W),
+                .ACC_W(ACC_W)
+            )
             u_pe (
-                  .CLK(CLK),
-                  .RST(RST),
-                  .A_in(A_w[row][col]),
-                  .B_in(B_w[row][col]),
-                  .valid_in(valid_in[row]),
-                  .A_out(A_w[row][col+1]),   // Forward right
-                  .B_out(B_w[row+1][col]),   // Forward down
-                  .acc_out(acc_w[row][col]),
-                  .valid_out(valid_w[row][col])
-                  );
+                .CLK(CLK),
+                .RST(RST),
+                
+                .A_in(A_w[row][col]),
+                .B_in(B_w[row][col]),
+                .valid_in(valid_w[row][col]),
+                
+                .A_out(A_w[row][col+1]),
+                .B_out(B_w[row+1][col]),
+                .acc_out(acc_w[row][col]),
+                .valid_out(valid_w[row][col+1])
+            );
+
         end
     end
 endgenerate
 
+
+
+// output flattening
 generate
-    for (row = 0; row < N; row = row + 1) begin: flatten_outputs
+    for (row = 0; row < N; row = row + 1) begin : flatten_outputs
+
         assign acc_out[row*ACC_W +: ACC_W] = acc_w[row][N-1];
-        assign valid_out[row] = valid_w[row][N-1];
+        assign valid_out[row] = valid_w[row][N];
     end
 endgenerate
 endmodule
