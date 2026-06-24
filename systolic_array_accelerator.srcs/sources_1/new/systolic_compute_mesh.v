@@ -23,7 +23,7 @@
 module systolic_compute_mesh #(
 parameter N = 4,
 parameter DATA_W = 8,
-parameter ACC_W = 16
+parameter ACC_W = 16 // defining parameters for mesh
 )(
 input wire CLK,
 input wire RST,
