@@ -1,0 +1,5 @@
+systolic_array_accelerator.sim/
+systolic_array_accelerator.hw/
+systolic_array_accelerator.cache/
+*.log
+*.jou
