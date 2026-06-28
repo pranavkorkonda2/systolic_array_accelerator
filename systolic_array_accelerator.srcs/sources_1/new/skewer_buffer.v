@@ -57,7 +57,3 @@ end
 assign data_out = shift_pipeline[DEPTH-1];
 end
 endmodule
-    
-
-
-endmodule
