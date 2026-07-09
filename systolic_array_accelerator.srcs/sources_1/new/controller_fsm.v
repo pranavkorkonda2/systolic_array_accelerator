@@ -50,4 +50,62 @@ always @(posedge CLK) begin
         current_state <= next_state;
     end
 end
+
+always @(posedge CLK) begin
+    if (RST || current_state == STATE_IDLE) begin
+        cycle_counter <= 0;
+    end else if (current_state == STATE_COMPUTE) begin
+        cycle_counter <= cycle_counter + 1;
+    end
+ end
+
+always @(*) begin
+    next_state = current_state;
+    case (current_state)
+        STATE_IDLE: begin
+            if (START)
+                next_state = STATE_LOAD;
+            else
+                next_state = STATE_IDLE;
+        end
+        STATE_LOAD: begin
+            next_state = STATE_COMPUTE;
+        end
+        STATE_COMPUTE: begin
+            if (counter_flag)
+                next_state = STATE_OUTPUT_VALID;
+            else
+                next_state = STATE_COMPUTE;
+        end
+        STATE_OUTPUT_VALID: begin
+            next_state = STATE_IDLE;
+        end
+        default: next_state = STATE_IDLE;
+    endcase
+end
+
+always @(*) begin
+        // Safe default assignments to guarantee pure combinational logic
+    CLEAR_ACC = 1'b0;
+    MESH_VALID_IN = 1'b0;
+    DONE = 1'b0;
+    case (current_state)
+         STATE_IDLE: begin
+                // Keep everything squashed to minimize dynamic power draw
+         end 
+         STATE_LOAD: begin
+                // Flush out any stale matrix data from the PE accumulators
+            CLEAR_ACC = 1'b1;
+            end
+         STATE_COMPUTE: begin
+                // Keep feeding real data valid tokens through the network
+            MESH_VALID_IN = 1'b1;
+         end
+         STATE_OUTPUT_VALID: begin
+                // Signal the external CPU to safely latch the completed calculations
+            DONE = 1'b1;
+         end
+    endcase
+end
+
 endmodule
