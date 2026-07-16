@@ -29,7 +29,7 @@ module systolic_array_top #(
     input wire [N*DATA_W-1:0] A_in,
     input wire [N*DATA_W-1:0] B_in,
     
-    output wire [N*ACC_W-1:0] acc_out,
+    output wire [N*N*ACC_W-1:0] acc_out,
     output wire [N-1:0] valid_out,
     output wire DONE
 );
