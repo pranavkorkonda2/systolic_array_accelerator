@@ -35,8 +35,8 @@ localparam STATE_LOAD = 2'b01;
 localparam STATE_COMPUTE = 2'b10;
 localparam STATE_OUTPUT_VALID = 2'b11;
 
-reg current_state;
-reg next_state;
+reg [1:0] current_state;
+reg [1:0] next_state;
 // Execution Counter
 // Tracks cycles during COMPUTE state. Needs to count up to (3N - 2).
 // For N=4, 3(4)-2 = 10 cycles. A 4-bit counter is safe up to 15.
