@@ -31,7 +31,7 @@ input wire [N*DATA_W-1:0] B_in,
 
 output wire [N*DATA_W-1:0] A_out,
 output wire [N*DATA_W-1:0] B_out,
-output wire [N*ACC_W-1:0] acc_out,
+output wire [N*N*ACC_W-1:0] acc_out,
 output wire [N-1:0] valid_out
 );
 
@@ -94,12 +94,18 @@ endgenerate
 
 
 
-// output flattening
+// output flattening. data is taken from the 2D mesh and then packed into a single
+// flat 1D output so it can leave the chip
 generate
-    for (row = 0; row < N; row = row + 1) begin : flatten_outputs
-
-        assign acc_out[row*ACC_W +: ACC_W] = acc_w[row][N-1];
+    for (row = 0; row < N; row = row + 1) begin : flatten_rows
+        for (col = 0; col < N; col = col + 1) begin : flatten_cols
+            assign acc_out[(row*N + col)*ACC_W +: ACC_W] = acc_w[row][col];
+        end
+    end
+    
+    for (row = 0; row < N; row = row + 1) begin : flatten_valids
         assign valid_out[row] = valid_w[row][N];
     end
 endgenerate
+
 endmodule
