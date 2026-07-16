@@ -93,7 +93,6 @@ generate
 endgenerate
 
 
-
 // output flattening. data is taken from the 2D mesh and then packed into a single
 // flat 1D output so it can leave the chip
 generate
