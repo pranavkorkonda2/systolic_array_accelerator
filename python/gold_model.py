@@ -72,3 +72,33 @@ with open("matrix_A.txt", "w") as f_a, open("matrix_B.txt", "w") as f_b:
         f_b.write(f"{b_packed_cycle:08X}\n")
 
 print("[INFO] Generated matrix_A.txt, matrix_B.txt, expected_C.txt, A_matrix.txt, B_matrix.txt")
+
+# Once the Verilog simulation writes hardware_output.txt, run this section to verify!
+hw_file = "hardware_output.txt"
+if os.path.exists(hw_file):
+    print("\n" + "=" * 60)
+    print("---------AUTOMATED HARDWARE VS SOFTWARE CHECK--------- ")
+    print("=" * 60)
+    
+    hw_results = []
+    with open(hw_file, "r") as f:
+        for line in f:
+            if line.strip():
+                hw_results.append(int(line.strip(), 16))
+                
+    expected_results = C.flatten().tolist()
+    
+    mismatches = 0
+    for idx, (hw, exp) in enumerate(zip(hw_results, expected_results)):
+        row = idx // N
+        col = idx % N
+        if hw != exp:
+            print(f"[FAIL] Result[{row}][{col}] -> HW: {hw} (0x{hw:04X}) | Expected: {exp} (0x{exp:04X})")
+            mismatches += 1
+            
+    if mismatches == 0 and len(hw_results) == (N * N):
+        print(">>> SUCCESS: RTL Hardware Output perfectly matches Python Golden Model! <<<")
+    else:
+        print(f">>> FAILURE: Found {mismatches} mismatches out of {N*N} values. <<<")
+else:
+    print("\n[NOTE] 'hardware_output.txt' not found yet. Run Verilog simulation to perform auto-check.")
