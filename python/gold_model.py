@@ -90,19 +90,22 @@ if os.path.exists(hw_file):
             if line.strip():
                 hw_results.append(int(line.strip(), 16))
                 
-    expected_results = C.flatten().tolist()
+    expected_results = (C & mask_acc).flatten().tolist()
     
-    mismatches = 0
-    for idx, (hw, exp) in enumerate(zip(hw_results, expected_results)):
-        row = idx // N
-        col = idx % N
-        if hw != exp:
-            print(f"[FAIL] Result[{row}][{col}] -> HW: {hw} (0x{hw:04X}) | Expected: {exp} (0x{exp:04X})")
-            mismatches += 1
-            
-    if mismatches == 0 and len(hw_results) == (N * N):
-        print("SUCCESS: RTL Hardware Output perfectly matches Python Golden Model! <<<")
+    if len(hw_results) != N * N:
+        print(f"[ERROR] Output count mismatch! Expected {N*N} outputs, but found {len(hw_results)} in '{hw_file}'.")
     else:
-        print(f"FAILURE: Found {mismatches} mismatches out of {N*N} values. <<<")
+        mismatches = 0
+        for idx, (hw, exp) in enumerate(zip(hw_results, expected_results)):
+            row = idx // N
+            col = idx % N
+            if hw != exp:
+                print(f"[FAIL] Result[{row}][{col}] -> HW: {hw} (0x{hw:04X}) | Expected: {exp} (0x{exp:04X})")
+                mismatches += 1
+            
+        if mismatches == 0 and len(hw_results) == (N * N):
+            print("SUCCESS: RTL Hardware Output perfectly matches Python Golden Model! <<<")
+        else:
+            print(f"FAILURE: Found {mismatches} mismatches out of {N*N} values. <<<")
 else:
     print("\n[NOTE] 'hardware_output.txt' not found yet. Run Verilog simulation to perform auto-check.")
