@@ -17,6 +17,7 @@
 // Revision 0.01 - File Created
 // Additional Comments:
 // 
+
 //////////////////////////////////////////////////////////////////////////////////
 module systolic_array_top #(
     parameter N = 4,
@@ -80,11 +81,11 @@ module systolic_array_top #(
     ) u_compute_mesh (
         .CLK(CLK),
         .RST(mesh_rst),
-        .valid_in(skewed_valid),
-        .A_in(skewed_A),
-        .B_in(skewed_B),
-        .A_out(),      // Left floating: Data exits the right boundary of the chip 
-        .B_out(),      // Left floating: Data exits the bottom boundary of the chip
+        .valid_in(fsm_valid_vector), // Direct from FSM
+        .A_in(A_in),                 // Direct from testbench
+        .B_in(B_in),                 // Direct from testbench
+        .A_out(),
+        .B_out(),
         .acc_out(acc_out),
         .valid_out(valid_out)
     );
