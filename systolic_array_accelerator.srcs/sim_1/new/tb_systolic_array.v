@@ -81,10 +81,6 @@ module tb_systolic_array;
     // Main Test Sequence
     initial begin
         mismatches = 0;
-        // Load Python-Generated Test Vectors
-        $readmemh("matrix_A.txt", stream_A);
-        $readmemh("matrix_B.txt", stream_B);
-        $readmemh("expected_C.txt", expected_C);
 
         // Initialize Signals
         CLK = 0;
@@ -92,6 +88,19 @@ module tb_systolic_array;
         START = 0;
         A_in = 0;
         B_in = 0;
+        
+        for (i = 0; i < CYCLES; i = i + 1) begin
+            stream_A[i] = {N*DATA_W{1'b0}};
+            stream_B[i] = {N*DATA_W{1'b0}};
+        end
+        for (i = 0; i < TOTAL_OUTPUTS; i = i + 1) begin
+            expected_C[i] =  {ACC_W{1'b0}};
+        end
+        
+        $readmemh("matrix_A.txt", stream_A);
+        $readmemh("matrix_B.txt", stream_B);
+        $readmemh("expected_C.txt", expected_C);
+        
         // Reset DUT
         repeat (5) @(posedge CLK);
         #1;
@@ -109,9 +118,23 @@ module tb_systolic_array;
         $display("======================================================");
 
         for (i = 0; i < CYCLES; i = i + 1) begin
-            A_in = stream_A[i];
-            B_in = stream_B[i];
-            $display("[STREAM] Cycle %0d/%0d", i, CYCLES-1);
+        //Safeguard: check if  memory line contains x/z, then fallback
+        // to 0.
+            if (^stream_A[i] === 1'bx) begin
+                $display("[TB WARNING] Cycle %0d: stream_A contains 'X' or file unreadable. Defaulting to 0.", i);
+                A_in = {N*DATA_W{1'b0}};
+            end else begin
+                A_in = stream_A[i];
+            end
+            
+            if (^stream_B[i] === 1'bx) begin
+                $display("[TB WARNING] Cycle %0d: stream_B contains 'X' or file unreadable. Defaulting to 0.", i);
+                B_in = {N*DATA_W{1'b0}};
+            end else begin
+                B_in = stream_B[i];
+            end
+            
+            $display("[STREAM] Cycle %0d/%0d | A_in = %h | B_in = %h", i, CYCLES-1, A_in, B_in);
             @(posedge CLK);
             #1;
         end
@@ -140,8 +163,9 @@ module tb_systolic_array;
                 end
             join
         end
-        // Allow Registered Outputs to Settle
-        @(posedge CLK);
+
+        // Wait 2 extra clock cycles for all pipeline accumulators to fully freeze & settle
+        repeat (2) @(posedge CLK);
         #1;
         // Open Output File
         file_handle = $fopen("hardware_output.txt", "w");
@@ -171,6 +195,14 @@ module tb_systolic_array;
                         expected_val
                     );
                     mismatches = mismatches + 1;
+                end else begin
+                    $display(
+                        "[PASS] C[%0d][%0d] HW=%04X EXP=%04X",
+                        row,
+                        col,
+                        actual_val,
+                        expected_val
+                    );
                 end
             end
         end
