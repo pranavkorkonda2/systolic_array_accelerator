@@ -18,6 +18,8 @@
 // Additional Comments:
 // 
 //////////////////////////////////////////////////////////////////////////////////
+`timescale 1ns / 1ps
+
 module tb_systolic_array;
 
     parameter N = 4;
@@ -94,7 +96,7 @@ module tb_systolic_array;
             stream_B[i] = {N*DATA_W{1'b0}};
         end
         for (i = 0; i < TOTAL_OUTPUTS; i = i + 1) begin
-            expected_C[i] =  {ACC_W{1'b0}};
+            expected_C[i] = {ACC_W{1'b0}};
         end
         
         $readmemh("matrix_A.txt", stream_A);
@@ -105,36 +107,42 @@ module tb_systolic_array;
         repeat (5) @(posedge CLK);
         #1;
         RST = 0;
+
+        // Wait one full cycle for reset release to propagate
         @(posedge CLK);
-        #1;
-        // Pulse START
-        START = 1;
-        @(posedge CLK);
-        #1;
-        START = 0;
-        // Feed Matrix Streams
+
         $display("======================================================");
         $display("[TB INFO] Starting Matrix Stream Injection");
         $display("======================================================");
 
+        // STEP 1: Pulse START to trigger STATE_CLEAR in FSM
+        START = 1;
+        @(posedge CLK);
+        #1;
+        START = 0;
+
+        // STEP 2: Wait 1 clock cycle while FSM is in STATE_CLEAR
+        @(posedge CLK);
+        #1;
+
+        // STEP 3: Now stream all data (Cycles 0 through CYCLES-1) in STATE_COMPUTE
         for (i = 0; i < CYCLES; i = i + 1) begin
-        //Safeguard: check if  memory line contains x/z, then fallback
-        // to 0.
             if (^stream_A[i] === 1'bx) begin
-                $display("[TB WARNING] Cycle %0d: stream_A contains 'X' or file unreadable. Defaulting to 0.", i);
+                $display("[TB WARNING] Cycle %0d: stream_A contains 'X'. Defaulting to 0.", i);
                 A_in = {N*DATA_W{1'b0}};
             end else begin
                 A_in = stream_A[i];
             end
-            
+
             if (^stream_B[i] === 1'bx) begin
-                $display("[TB WARNING] Cycle %0d: stream_B contains 'X' or file unreadable. Defaulting to 0.", i);
+                $display("[TB WARNING] Cycle %0d: stream_B contains 'X'. Defaulting to 0.", i);
                 B_in = {N*DATA_W{1'b0}};
             end else begin
                 B_in = stream_B[i];
             end
-            
+
             $display("[STREAM] Cycle %0d/%0d | A_in = %h | B_in = %h", i, CYCLES-1, A_in, B_in);
+            
             @(posedge CLK);
             #1;
         end
@@ -164,9 +172,10 @@ module tb_systolic_array;
             join
         end
 
-        // Wait 2 extra clock cycles for all pipeline accumulators to fully freeze & settle
+        // Wait 2 extra clock cycles for pipeline outputs to settle
         repeat (2) @(posedge CLK);
         #1;
+        
         // Open Output File
         file_handle = $fopen("hardware_output.txt", "w");
         if (file_handle == 0) begin
@@ -175,7 +184,6 @@ module tb_systolic_array;
         end
       
         // Compare Against Golden Model
-  
         $display("[TB INFO] Comparing Hardware Results");
         $display("======================================================");
 
@@ -215,8 +223,6 @@ module tb_systolic_array;
         else
             $display("[FAILURE] %0d mismatches detected.", mismatches);
         $display("[TB INFO] Simulation complete.");
-        $display("[TB INFO] Waveform: waveform.vcd");
-        $display("[TB INFO] Hardware output: hardware_output.txt");
         $display("======================================================");
         $finish;
     end
