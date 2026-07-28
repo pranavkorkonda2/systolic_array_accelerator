@@ -38,16 +38,9 @@ module systolic_array_top #(
     // 1. Internal Interconnect Wires
     wire CLEAR_ACC;
     wire MESH_VALID_IN;
-    
     wire [N-1:0] fsm_valid_vector;
-    wire [N-1:0] skewed_valid;
-    wire [N*DATA_W-1:0] skewed_A;
-    wire [N*DATA_W-1:0] skewed_B;
-    
     wire mesh_rst;
 
-    // 2. Module Instantiations
-    
     // Controller FSM
     controller_fsm #(.N(N)) u_controller (
         .CLK(CLK),
@@ -58,22 +51,7 @@ module systolic_array_top #(
         .DONE(DONE)
     );
 
-    // Input Skew Network
-    input_skew_network #(
-        .N(N),
-        .DATA_W(DATA_W)
-    ) u_skew_network (
-        .CLK(CLK),
-        .RST(RST),
-        .valid_in(fsm_valid_vector),
-        .A_in(A_in),
-        .B_in(B_in),
-        .skewed_valid_out(skewed_valid),
-        .skewed_A_out(skewed_A),
-        .skewed_B_out(skewed_B)
-    );
-
-    // Systolic Compute Mesh
+    // Instantiate Systolic Compute Mesh
     systolic_compute_mesh #(
         .N(N),
         .DATA_W(DATA_W),
@@ -81,21 +59,19 @@ module systolic_array_top #(
     ) u_compute_mesh (
         .CLK(CLK),
         .RST(mesh_rst),
-        .valid_in(fsm_valid_vector), // Direct from FSM
-        .A_in(A_in),                 // Direct from testbench
-        .B_in(B_in),                 // Direct from testbench
+        .valid_in(fsm_valid_vector), // Direct from FSM!
+        .A_in(A_in),                 // Pre-skewed from TB!
+        .B_in(B_in),                 // Pre-skewed from TB!
         .A_out(),
         .B_out(),
         .acc_out(acc_out),
         .valid_out(valid_out)
     );
-    
-    // The FSM outputs a single 'MESH_VALID_IN' bit. 
-    // We replicate it N times so that all N rows/columns get the valid flag simultaneously.
+
+    // MESH_VALID_IN is driven only when Row 0 data actually enters
     assign fsm_valid_vector = {N{MESH_VALID_IN}};
 
-    // The compute mesh needs to clear its internal accumulators during STATE_LOAD.
-    // We achieve this by ORing the global system 'RST' with the FSM's 'CLEAR_ACC' signal.
+    // Resets accumulators when reset or clear is requested
     assign mesh_rst = RST | CLEAR_ACC;
 
 endmodule
