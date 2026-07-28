@@ -18,93 +18,100 @@
 // Additional Comments:
 // 
 //////////////////////////////////////////////////////////////////////////////////
-
-
 module controller_fsm #(parameter N = 4)(
-input wire CLK,
-input wire RST,
-input wire START, // host signal to begin matrix multiplication
+    input wire CLK,
+    input wire RST,
+    input wire START,
 
-output reg CLEAR_ACC, // signals PE to clear accumulation register
-output reg MESH_VALID_IN, // controls the input data valid stream to the skew network
-output reg DONE // flag to host execution is complete
+    output reg CLEAR_ACC,
+    output reg MESH_VALID_IN,
+    output reg DONE
 );
 
-localparam STATE_IDLE = 2'b00;
-localparam STATE_LOAD = 2'b01;
-localparam STATE_COMPUTE = 2'b10;
-localparam STATE_OUTPUT_VALID = 2'b11;
+    localparam STATE_IDLE         = 2'b00;
+    localparam STATE_CLEAR        = 2'b01;
+    localparam STATE_COMPUTE      = 2'b10;
+    localparam STATE_OUTPUT_VALID = 2'b11;
 
-reg [1:0] current_state;
-reg [1:0] next_state;
-// Execution Counter
-// Tracks cycles during COMPUTE state. Needs to count up to (3N - 2).
-// For N=4, 3(4)-2 = 10 cycles. A 4-bit counter is safe up to 15.
-reg[3:0] cycle_counter;
-wire counter_flag = (cycle_counter == (3 * N - 2));
+    reg [1:0] current_state, next_state;
+    reg [4:0] cycle_counter;
+    
+    // Total execution cycles required: 
+    // Stream depth (2*N - 1) + Array depth (N - 1) = 3*N - 2 cycles (10 cycles for N=4)
+    // Counting 0 to 10 is 11 clock cycles.
+    wire counter_flag = (cycle_counter == (3 * N - 1));
 
-always @(posedge CLK) begin
-    if (RST) begin
-       current_state <= STATE_IDLE;
-    end else begin
-        current_state <= next_state;
+    always @(posedge CLK) begin
+        if (RST) begin
+            current_state <= STATE_IDLE;
+        end else begin
+            current_state <= next_state;
+        end
     end
-end
 
-always @(posedge CLK) begin
-    if (RST || current_state == STATE_IDLE) begin
-        cycle_counter <= 0;
-    end else if (current_state == STATE_COMPUTE) begin
-        cycle_counter <= cycle_counter + 1;
+    always @(posedge CLK) begin
+        if (RST || current_state == STATE_IDLE) begin
+            cycle_counter <= 0;
+        end else if (current_state == STATE_COMPUTE) begin
+            cycle_counter <= cycle_counter + 1;
+        end
     end
- end
 
-always @(*) begin
-    next_state = current_state;
-    case (current_state)
-        STATE_IDLE: begin
-            if (START)
-                next_state = STATE_LOAD;
-            else
-                next_state = STATE_IDLE;
-        end
-        STATE_LOAD: begin
-            next_state = STATE_COMPUTE;
-        end
-        STATE_COMPUTE: begin
-            if (counter_flag)
-                next_state = STATE_OUTPUT_VALID;
-            else
-                next_state = STATE_COMPUTE;
-        end
-        STATE_OUTPUT_VALID: begin
-            next_state = STATE_IDLE;
-        end
-        default: next_state = STATE_IDLE;
-    endcase
-end
-
-always @(*) begin
-        // Safe default assignments to guarantee pure combinational logic
-    CLEAR_ACC = 1'b0;
-    MESH_VALID_IN = 1'b0;
-    DONE = 1'b0;
-    case (current_state)
-         STATE_IDLE: begin
-                // Keep everything squashed to minimize dynamic power draw
-         end 
-         STATE_LOAD: begin
-                // Flush out any stale matrix data from the PE accumulators
-            CLEAR_ACC = 1'b1;
+    // Next State Logic
+    always @(*) begin
+        next_state = current_state;
+        case (current_state)
+            STATE_IDLE: begin
+                if (START)
+                    next_state = STATE_CLEAR; // Step 1: Go to CLEAR first!
+                else
+                    next_state = STATE_IDLE;
             end
-         STATE_COMPUTE: begin
-                // Keep feeding real data valid tokens through the network
-            MESH_VALID_IN = 1'b1;
-         end
-         STATE_OUTPUT_VALID: begin
-                // Signal the external CPU to safely latch the completed calculations
-            DONE = 1'b1;
-         end
-    endcase
-end
+            
+            STATE_CLEAR: begin
+                // Step 2: Automatically move to COMPUTE on the next cycle
+                next_state = STATE_COMPUTE; 
+            end
+            
+            STATE_COMPUTE: begin
+                if (counter_flag)
+                    next_state = STATE_OUTPUT_VALID;
+                else
+                    next_state = STATE_COMPUTE;
+            end
+            
+            STATE_OUTPUT_VALID: begin
+                next_state = STATE_IDLE;
+            end
+            
+            default: next_state = STATE_IDLE;
+        endcase
+    end
+
+    // Combinational Output Logic
+    always @(*) begin
+        CLEAR_ACC     = 1'b0;
+        MESH_VALID_IN = 1'b0;
+        DONE          = 1'b0;
+        
+        case (current_state)
+            STATE_IDLE: begin
+                // Do nothing, wait for START
+            end
+            
+            STATE_CLEAR: begin
+                // Synchronously clear accumulators 1 cycle BEFORE computation starts
+                CLEAR_ACC = 1'b1; 
+            end
+            
+            STATE_COMPUTE: begin
+                // Accumulators are clean, enable computation
+                MESH_VALID_IN = 1'b1; 
+            end
+            
+            STATE_OUTPUT_VALID: begin
+                DONE = 1'b1;
+            end
+        endcase
+    end
 endmodule
