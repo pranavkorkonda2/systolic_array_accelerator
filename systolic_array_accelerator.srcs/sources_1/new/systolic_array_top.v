@@ -51,7 +51,26 @@ module systolic_array_top #(
         .DONE(DONE)
     );
 
-    // Instantiate Systolic Compute Mesh
+    wire [N-1:0]        skewed_valid_out;
+    wire [N*DATA_W-1:0] skewed_A_out;
+    wire [N*DATA_W-1:0] skewed_B_out;
+
+    // Instantiate Input Skew Network so hardware handles pipeline delays on-chip
+    input_skew_network #(
+        .N(N),
+        .DATA_W(DATA_W)
+    ) u_skew_network (
+        .CLK(CLK),
+        .RST(RST),
+        .valid_in(fsm_valid_vector),
+        .A_in(A_in),
+        .B_in(B_in),
+        .skewed_valid_out(skewed_valid_out),
+        .skewed_A_out(skewed_A_out),
+        .skewed_B_out(skewed_B_out)
+    );
+
+    // Instantiate Systolic Compute Mesh driven by skewed outputs
     systolic_compute_mesh #(
         .N(N),
         .DATA_W(DATA_W),
@@ -59,15 +78,14 @@ module systolic_array_top #(
     ) u_compute_mesh (
         .CLK(CLK),
         .RST(mesh_rst),
-        .valid_in(fsm_valid_vector), // Direct from FSM!
-        .A_in(A_in),                 // Pre-skewed from TB!
-        .B_in(B_in),                 // Pre-skewed from TB!
+        .valid_in(skewed_valid_out),
+        .A_in(skewed_A_out),
+        .B_in(skewed_B_out),
         .A_out(),
         .B_out(),
         .acc_out(acc_out),
         .valid_out(valid_out)
     );
-
     // MESH_VALID_IN is driven only when Row 0 data actually enters
     assign fsm_valid_vector = {N{MESH_VALID_IN}};
 
