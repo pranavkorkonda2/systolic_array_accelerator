@@ -48,33 +48,22 @@ with open('expected_C.txt', 'w') as f:
         for col in range(N):
             f.write(f"{C[row, col] & mask_acc:04X}\n")
 
-# Total clock cycles needed to feed N x N skew network = (2 * N - 1)
-# Cycle 0: A[0,0] and B[0,0] enter
-# Cycle 2*N - 2: A[N-1, N-1] and B[N-1, N-1] enter
 with open("matrix_A.txt", "w") as f_a, open("matrix_B.txt", "w") as f_b:
-    for t in range(2 * N - 1):
+    for k in range(N):
         a_packed_cycle = 0
         b_packed_cycle = 0
         
         for i in range(N):
-            # Matrix A Skew Timing:
-            # Row i is delayed by i cycles in hardware.
-            # Thus at time t, Row i receives column element (t - i).
-            col_a = t - i
-            a_val = A[i, col_a] if 0 <= col_a < N else 0
-            # Fixed Bug: Changed MASK_DATA to lower-case mask_data
+            # Matrix A: Row i gets column element k
+            a_val = A[i, k]
             a_packed_cycle |= (int(a_val) & mask_data) << (i * DATA_W)
 
-            # Matrix B Skew Timing:
-            # Column j (mapped here as index i) is delayed by i cycles in hardware.
-            # Thus at time t, Column i receives row element (t - i).
-            row_b = t - i
-            b_val = B[row_b, i] if 0 <= row_b < N else 0
+            # Matrix B: Column i gets row element k
+            b_val = B[k, i]
             b_packed_cycle |= (int(b_val) & mask_data) << (i * DATA_W)
 
         f_a.write(f"{a_packed_cycle:08X}\n")
         f_b.write(f"{b_packed_cycle:08X}\n")
-
 print("[INFO] Generated matrix_A.txt, matrix_B.txt, expected_C.txt, A_matrix.txt, B_matrix.txt")
 
 # Once the Verilog simulation writes hardware_output.txt, run this section to verify!
