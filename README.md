@@ -62,10 +62,10 @@ Operands A and B along with control valid flags are registered on every clock cy
 ```
 ![PE Waveform](images/wave_pe.png)
 
-Waveform Verification Highlights (`wave_pe.png`):
-    1. Synchronous Accumulator Reset: `RST_tb` clears `acc_out_tb` to `0` at 20 ns.
-    2.  Pipelined MAC Execution: At 50 ns, inputs A = 3 and B = 4 compute 3 x 4 = 12. On the following cycle (70 ns), inputs A=2 and B=5 accumulate to 12, 12 + (2 x 5) = 22.
-    3.  Registered Operand Forwarding: Input values A and B are registered and forwarded to `A_out_tb` and `B_out_tb` on the subsequent clock edge with zero data corruption.
+> - Waveform Verification Highlights (`wave_pe.png`):
+> - Synchronous Accumulator Reset: `RST_tb` clears `acc_out_tb` to `0` at 20 ns.
+> -  Pipelined MAC Execution: At 50 ns, inputs A = 3 and B = 4 compute 3 x 4 = 12. On the following cycle (70 ns), inputs A=2 and B=5 accumulate to 12, 12 + (2 x 5) = 22.
+> -  Registered Operand Forwarding: Input values A and B are registered and forwarded to `A_out_tb` and `B_out_tb` on the subsequent clock edge with zero data corruption.
 
 ---
 
