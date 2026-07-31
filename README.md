@@ -21,7 +21,7 @@ The systolic accelerator consists of four primary structural blocks:
 3. Systolic Compute Mesh: NxN grid of Processing Elements propagating operands horizontally ($A$) and vertically ($B$).
 4. Processing Element (PE): Pipelined Multiply-Accumulate unit with registered operand forwarding.
 
-
+```
                   B_in[0]       B_in[1]       B_in[2]       B_in[3]
                      │             │             │             │
                      ▼             ▼             ▼             ▼
@@ -37,7 +37,7 @@ A_in[1] ─►[Skew 1]─►[ PE1,0 ] ──► [ PE1,1 ] ──► [ PE1,2 ] �
 A_in[2] ─►[Skew 2]─►[ PE2,0 ] ──► [ PE2,1 ] ──► [ PE2,2 ] ──► [ PE2,3 ]
                     │             │             │             │
 A_in[3] ─►[Skew 3]─►[ PE3,0 ] ──► [ PE3,1 ] ──► [ PE3,2 ] ──► [ PE3,3 ]
-
+```
 
 ---
 
@@ -48,7 +48,7 @@ Each PE computes an output-stationary MAC operation:
 acc_reg => acc_reg + A_in x B_in
 
 Operands A and B along with control valid flags are registered on every clock cycle and forwarded to neighboring PEs in the mesh to maintain systolic rhythm.
-
+```
                B_in , valid_in
                      │
                      ▼
@@ -59,7 +59,7 @@ Operands A and B along with control valid flags are registered on every clock cy
                      │
                      ▼
                B_out , valid_out
-
+```
 ![PE Waveform](images/wave_pe.png)
 
 Waveform Verification Highlights (`wave_pe.png`):
@@ -107,7 +107,7 @@ Waveform Verification Highlights (`wave_skew.png`):
 ## Finite State Machine (FSM) Execution (controller_fsm.v)
 
 The execution lifecycle is governed by a 4-state controller:
-
+```
     ┌──────────┐
     │  IDLE    │◄─────────────────────────────┐
     └────┬─────┘                              │
@@ -126,7 +126,7 @@ The execution lifecycle is governed by a 4-state controller:
     ┌──────────┐                              │
     │OUTPUT_VAL│──────────────────────────────┘
     └──────────┘ DONE = 1
-
+```
 
 1. IDLE: Controller awaits `START` pulse.
 2. CLEAR: Asserts `CLEAR_ACC` for 1 clock cycle to clear all NxN accumulators prior to computation.
@@ -158,7 +158,7 @@ Waveform Verification Highlights (`wave_systolic_array1.png`):
 ## Verification Methodology
 
 Verification employs a co-simulation flow linking Python software models with Verilog testbenches:
-
+```
 
 ┌──────────────────────┐        Generates Test Vectors       ┌──────────────────────┐
 │  golden_model.py     │ ──────────────────────────────────► │  matrix_A/B.txt      │
@@ -168,7 +168,7 @@ Verification employs a co-simulation flow linking Python software models with Ve
 ┌──────────────────────┐       Compares Hardware Output      ┌──────────────────────┐
 │   expected_C.txt     │ ◄────────────────────────────────── │  tb_systolic_top.v   │
 └──────────────────────┘                                     └──────────────────────┘
-
+```
 
 1. `golden_model.py` generates pseudo-random input matrices $A$ and $B$, packs them into hex formatted cycle streams, and calculates gold-standard output C = A x B.
 2. Verilog testbench loads inputs via `$readmemh`, drives `systolic_array_top`, and dumps execution outputs to `hardware_output.txt`.
@@ -219,6 +219,7 @@ Implemented in **AMD Xilinx Vivado 2025.2** targeting Kintex-7 (`xc7k70tfbv676-1
 ---
 
 ## Repository Structure
+```
 systolic-array-accelerator/
 ├── rtl/
 │   ├── systolic_mac_pe.v       # Processing Element MAC design
@@ -240,7 +241,7 @@ systolic-array-accelerator/
 │   ├── utilization_report.txt  # Vivado resource utilization output
 │   └── timing_report.txt       # Vivado timing summary report
 └── README.md
-
+```
 ## Author and Contact
     1. Developer: Pranav Korkonda
     2. Email: pranavkorkonda2@gmail.com
