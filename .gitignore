@@ -20,3 +20,7 @@ xsim.dir/
 *.lnk
 .DS_Store
 Thumbs.db
+
+# Simulation test vectors & outputs
+*.txt
+!reports/*.txt
