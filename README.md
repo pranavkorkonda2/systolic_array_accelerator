@@ -220,27 +220,28 @@ Implemented in **AMD Xilinx Vivado 2025.2** targeting Kintex-7 (`xc7k70tfbv676-1
 
 ## Repository Structure
 ```
-systolic-array-accelerator/
-├── rtl/
-│   ├── systolic_mac_pe.v       # Processing Element MAC design
-│   ├── systolic_compute_mesh.v # N x N Structural array mesh
-│   ├── skewer_buffer.v         # Shift register delay module
-│   ├── input_skew_network.v    # Hardware skewing logic
-│   ├── controller_fsm.v        # State controller logic
-│   └── systolic_array_top.v    # Top-level system wrapper
-├── tb
-│   ├── tb_systolic_array.v     # Full-system testbench (top-level)
-│   ├── tb_pe.v                 # Unit testbench for PE (MAC + forwarding)
-│   ├── tb_skew_network.v       # Unit testbench for skewing pipelines
-│   └── tb_compute_mesh.v       # Integration testbench for NxN mesh
+systolic_array_accelerator/
+├── docs/                               # Timing and Utilization reports
+├── images/                             # Waveform & architecture screenshots
 ├── python/
-│   └── golden_model.py         # Golden reference model & vector generator
-├── constraints/
-│   └── timing.xdc              # SDC timing constraints
-├── reports/
-│   ├── utilization_report.txt  # Vivado resource utilization output
-│   └── timing_report.txt       # Vivado timing summary report
-└── README.md
+│   └── golden_model.py                 # Golden reference model & vector generator
+├── systolic_array_accelerator.srcs/
+│   ├── constrs_1/new/
+│   │   └── timing_constraints.xdc      # Primary timing & clock constraints
+│   ├── sim_1/
+│   │   ├── imports/                    # Test vector files (matrix_A, matrix_B, etc.)
+│   │   └── new/
+│   │       └── tb_systolic_array.v     # Full-system testbench
+│   └── sources_1/new/
+│       ├── controller_fsm.v            # State controller logic
+│       ├── input_skew_network.v        # Hardware skewing logic
+│       ├── skewer_buffer.v             # Shift register delay module
+│       ├── systolic_array_top.v        # Top-level system wrapper
+│       ├── systolic_compute_mesh.v     # N x N Structural array mesh
+│       └── systolic_mac_pe.v           # Processing Element MAC design
+├── .gitignore
+├── README.md
+└── systolic_array_accelerator.xpr      # Vivado project file
 ```
 ## Author and Contact
     1. Developer: Pranav Korkonda
