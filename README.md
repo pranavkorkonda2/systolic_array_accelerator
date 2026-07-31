@@ -219,7 +219,7 @@ Implemented in **AMD Xilinx Vivado 2025.2** targeting Kintex-7 (`xc7k70tfbv676-1
 ---
 
 ## Repository Structure
-```
+```text
 systolic_array_accelerator/
 ├── docs/                               # Timing and Utilization reports
 ├── images/                             # Waveform & architecture screenshots
@@ -231,7 +231,10 @@ systolic_array_accelerator/
 │   ├── sim_1/
 │   │   ├── imports/                    # Test vector files (matrix_A, matrix_B, etc.)
 │   │   └── new/
-│   │       └── tb_systolic_array.v     # Full-system testbench
+│   │       ├── tb_compute_mesh.v       # Integration testbench for NxN mesh
+│   │       ├── tb_pe.v                 # Unit testbench for PE (MAC + forwarding)
+│   │       ├── tb_skew_network.v       # Unit testbench for skewing pipelines
+│   │       └── tb_systolic_array.v     # Full-system testbench (top-level)
 │   └── sources_1/new/
 │       ├── controller_fsm.v            # State controller logic
 │       ├── input_skew_network.v        # Hardware skewing logic
