@@ -63,9 +63,9 @@ Operands A and B along with control valid flags are registered on every clock cy
 ![PE Waveform](images/wave_pe.png)
 
 > - Waveform Verification Highlights (`wave_pe.png`):
-> - Synchronous Accumulator Reset: `RST_tb` clears `acc_out_tb` to `0` at 20 ns.
-> -  Pipelined MAC Execution: At 50 ns, inputs A = 3 and B = 4 compute 3 x 4 = 12. On the following cycle (70 ns), inputs A=2 and B=5 accumulate to 12, 12 + (2 x 5) = 22.
-> -  Registered Operand Forwarding: Input values A and B are registered and forwarded to `A_out_tb` and `B_out_tb` on the subsequent clock edge with zero data corruption.
+  > - Synchronous Accumulator Reset: `RST_tb` clears `acc_out_tb` to `0` at 20 ns.
+  > -  Pipelined MAC Execution: At 50 ns, inputs A = 3 and B = 4 compute 3 x 4 = 12. On the following cycle (70 ns), inputs A=2 and B=5 accumulate to 12, 12 + (2 x 5) = 22.
+  > -  Registered Operand Forwarding: Input values A and B are registered and forwarded to `A_out_tb` and `B_out_tb` on the subsequent clock edge with zero data corruption.
 
 ---
 
@@ -77,10 +77,10 @@ Data streams diagonally through the array mesh, allowing each input element to b
 
 ![Compute Mesh Waveform](images/wave_mesh.png)
 
-Waveform Verification Highlights (`wave_mesh.png`):
-    1. Inter-PE Data Propagation: Inputs A_in = 0x00000002 and B_in  = 0x00000003 drive channel 0 at 60 ns (`valid_in` = `0001`).
-    2. Downstream Forwarding: Registered outputs A_out and B_out reflect forwarded operands on the next clock cycle (120 ns) with matching `valid_out` flags (`0001`).
-    3. Spatial Accumulation: PE accumulators capture product values (2x3 = 6) directly into packed bus `acc_out[63:0]`.
+> - Waveform Verification Highlights (`wave_mesh.png`):
+    > - Inter-PE Data Propagation: Inputs A_in = 0x00000002 and B_in  = 0x00000003 drive channel 0 at 60 ns (`valid_in` = `0001`).
+    > - Downstream Forwarding: Registered outputs A_out and B_out reflect forwarded operands on the next clock cycle (120 ns) with matching `valid_out` flags (`0001`).
+    > - Spatial Accumulation: PE accumulators capture product values (2x3 = 6) directly into packed bus `acc_out[63:0]`.
 
 ---
 
@@ -94,13 +94,13 @@ This ensures that matching operand pairs A_ik and B_kj converge at PE_ij during 
 
 ![Input Skew Waveform](images/wave_skew.png)
 
-Waveform Verification Highlights (`wave_skew.png`):
-    1. Simultaneous Packed Input: Parallel packed buses A_in = 0xddccbbaa and B_in = 0x44332211 arrive simultaneously at 60 ns (`valid_in` = `1111`).
-    2. Staggered Diagonal Output: Shift registers delay output channels progressively across 4 consecutive cycles:
-        A.  Cycle 1 (60 ns): `skewed_valid_out` = `0001` (Byte 0: `0xaa` / `0x11`)
-        B.  Cycle 2 (80 ns): `skewed_valid_out` = `0010` (Byte 1: `0xbb` / `0x22`)
-        C.  Cycle 3 (100 ns): `skewed_valid_out` = `0100` (Byte 2: `0xcc` / `0x33`)
-        D.  Cycle 4 (120 ns): `skewed_valid_out` = `1000` (Byte 3: `0xdd` / `0x44`) 
+> - Waveform Verification Highlights (`wave_skew.png`):
+    > - Simultaneous Packed Input: Parallel packed buses A_in = 0xddccbbaa and B_in = 0x44332211 arrive simultaneously at 60 ns (`valid_in` = `1111`).
+    > - Staggered Diagonal Output: Shift registers delay output channels progressively across 4 consecutive cycles:
+        > -  Cycle 1 (60 ns): `skewed_valid_out` = `0001` (Byte 0: `0xaa` / `0x11`)
+        > -  Cycle 2 (80 ns): `skewed_valid_out` = `0010` (Byte 1: `0xbb` / `0x22`)
+        > -  Cycle 3 (100 ns): `skewed_valid_out` = `0100` (Byte 2: `0xcc` / `0x33`)
+        > - Cycle 4 (120 ns): `skewed_valid_out` = `1000` (Byte 3: `0xdd` / `0x44`) 
        
 ---
 
@@ -148,10 +148,10 @@ So, when `START` is pulsed high, the wrapper handles accumulator clearing, strea
 
 ![Top-Level System Waveform](images/wave_systolic_array1.png)
 
-Waveform Verification Highlights (`wave_systolic_array1.png`):
-    1. FSM Execution Lifecycle: A single-cycle `START` pulse at 110 ns triggers synchronous accumulator reset followed by active matrix streaming.
-    2. Systolic Pipeline Wavefront: Mesh valid signals (valid_out) progressively activate across the grid (`0001` -> `0011` -> `0111` -> `1111`).
-    3. Execution Completion: The controller asserts `DONE` at 390 ns, locking the final 4 x 4 result matrix into the 256-bit bus `acc_out` (`0xa112faf69426caffb1d502366e54c31...`).
+> - Waveform Verification Highlights (`wave_systolic_array1.png`):
+    > - FSM Execution Lifecycle: A single-cycle `START` pulse at 110 ns triggers synchronous accumulator reset followed by active matrix streaming.
+    > - Systolic Pipeline Wavefront: Mesh valid signals (valid_out) progressively activate across the grid (`0001` -> `0011` -> `0111` -> `1111`).
+    > - Execution Completion: The controller asserts `DONE` at 390 ns, locking the final 4 x 4 result matrix into the 256-bit bus `acc_out` (`0xa112faf69426caffb1d502366e54c31...`).
 
 ---
 
