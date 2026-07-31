@@ -1,5 +1,22 @@
+# Vivado auto-generated build & run directories
 systolic_array_accelerator.sim/
 systolic_array_accelerator.hw/
 systolic_array_accelerator.cache/
+systolic_array_accelerator.runs/
+systolic_array_accelerator.ip_user_files/
+.Xil/
+
+# Vivado log files, binary checkpoints & wave dumps
 *.log
 *.jou
+*.pb
+*.str
+*.wdb
+*.vcd
+*.dcp
+xsim.dir/
+
+# Windows shortcut files & OS clutter
+*.lnk
+.DS_Store
+Thumbs.db
