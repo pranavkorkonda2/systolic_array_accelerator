@@ -1,44 +1,111 @@
 # Parameterized INT8 Systolic Array AI Accelerator
 
-A parameterized $N \times N$ output-stationary systolic array accelerator designed in Verilog HDL for matrix multiplication ($C = A \times B$). The design features an integrated hardware input-skewing network, output-stationary MAC processing elements, a Finite State Machine controller, automated Python verification infrastructure, and full FPGA synthesis closure on AMD Xilinx Kintex-7.
+![Verilog](https://img.shields.io/badge/Language-Verilog_2001-blue.svg)
+![FPGA](https://img.shields.io/badge/Target-Xilinx_Kintex--7-orange.svg)
+![Toolchain](https://img.shields.io/badge/Toolchain-Vivado_2025.2-red.svg)
+![Timing](https://img.shields.io/badge/Timing-Met_(+3.156ns_WNS)-brightgreen.svg)
+![Python](https://img.shields.io/badge/Verification-Python_3.x-yellow.svg)
+
+> **A fully parameterized, hardware-skewed, output-stationary $N \times N$ matrix multiplication engine ($C = A \times B$) engineered in Verilog HDL and target-optimized for AMD Xilinx Kintex-7 FPGAs.**
 
 ---
 
-## Key Highlights
+## Executive Summary & Performance Highlights
 
-* **Parameterized Architecture:** Fully configurable grid size ($N$), data width (`DATA_W`), and accumulator bit-width (`ACC_W`). Tested at $N = 4$, INT8 operands, and 32-bit packed bus interfaces.
-* **Hardware Input Skewing:** On-chip shift-register network skewing row and column streams dynamically to streamline dataflow without off-chip delay logic.
-* **Automated Verification:** Python golden model generating deterministic test matrices and verification scripts reading hardware simulation dumps via `$readmemh`.
-* **Timing Closure:** Fully routed on Xilinx Kintex-7 (`xc7k70tfbv676-1`) achieving $+3.156\text{ ns}$ WNS ($F_{\max} = 146.11\text{ MHz}$).
+This accelerator addresses the memory bandwidth bottleneck of Von Neumann architectures by implementing a **spatial computing grid** with on-chip input staggering. Designed for INT8 AI/ML matrix workloads, the design achieves full timing closure without relying on external delay buffers.
 
----
-
-## System Architecture
-
-The systolic accelerator consists of four primary structural blocks:
-
-1. **Controller FSM:** Manages matrix multiplication execution states (`IDLE`, `CLEAR`, `COMPUTE`, `OUTPUT_VALID`).
-2. **Input Skew Network:** Delays $A_{\text{in}}$ row $i$ by $i$ cycles and $B_{\text{in}}$ column $j$ by $j$ cycles using delay pipelines.
-3. **Systolic Compute Mesh:** $N \times N$ grid of Processing Elements propagating operands horizontally ($A$) and vertically ($B$).
-4. **Processing Element (PE):** Pipelined Multiply-Accumulate unit with registered operand forwarding.
+| Metric | Specification / Result | Impact / Engineering Note |
+| :--- | :--- | :--- |
+| **Grid Configuration** | $N = 4$, INT8 inputs, 32-bit accumulators | Fully parameterized (`DATA_W`, `ACC_W`, `N`) |
+| **Max Clock Frequency ($F_{\max}$)** | **146.11 MHz** ($T_{\min} = 6.84\text{ ns}$) | Synthesized & routed on Kintex-7 (`xc7k70tfbv676-1`) |
+| **Worst Negative Slack (WNS)** | **$+3.156\text{ ns}$** | Clean timing closure at 100 MHz target clock |
+| **Peak Throughput** | **4.675 GOP/s** @ $F_{\max}$ | Direct continuous systolic MAC pipelining |
+| **Logic Resource Cost** | 1,371 LUTs (3.34%), 572 FFs (0.70%) | Ultra-compact control logic & distributed MACs |
+| **Verification** | 100% Bit-Exact Match | Python Golden Model co-simulation framework |
 
 ```text
-                  B_in[0]       B_in[1]       B_in[2]       B_in[3]
-                     │             │             │             │
-                     ▼             ▼             ▼             ▼
-               ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
-               │ Skew [0] │  │ Skew [1] │  │ Skew [2] │  │ Skew [3] │
-               └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘
-                    │             │             │             │
-                    ▼             ▼             ▼             ▼
-A_in[0] ─►[Skew 0]─►[ PE0,0 ] ──► [ PE0,1 ] ──► [ PE0,2 ] ──► [ PE0,3 ]
-                    │             │             │             │
-A_in[1] ─►[Skew 1]─►[ PE1,0 ] ──► [ PE1,1 ] ──► [ PE1,2 ] ──► [ PE1,3 ]
-                    │             │             │             │
-A_in[2] ─►[Skew 2]─►[ PE2,0 ] ──► [ PE2,1 ] ──► [ PE2,2 ] ──► [ PE2,3 ]
-                    │             │             │             │
-A_in[3] ─►[Skew 3]─►[ PE3,0 ] ──► [ PE3,1 ] ──► [ PE3,2 ] ──► [ PE3,3 ]
+                                     System Dataflow at a Glance
+   
+                           B_in[0]       B_in[1]       B_in[2]       B_in[3]
+                              │             │             │             │
+                         ┌────┴────┐   ┌────┴────┐   ┌────┴────┐   ┌────┴────┐
+                         │ Skew[0] │   │ Skew[1] │   │ Skew[2] │   │ Skew[3] │
+                         └────┬────┘   └────┬────┘   └────┬────┘   └────┬────┘
+                              ▼             ▼             ▼             ▼
+A_in[0] ──► [Skew 0] ──► [ PE0,0 ] ──► [ PE0,1 ] ──► [ PE0,2 ] ──► [ PE0,3 ]
+                             │             │             │             │
+                             ▼             ▼             ▼             ▼
+A_in[1] ──► [Skew 1] ──► [ PE1,0 ] ──► [ PE1,1 ] ──► [ PE1,2 ] ──► [ PE1,3 ]
+                             │             │             │             │
+                             ▼             ▼             ▼             ▼
+A_in[2] ──► [Skew 2] ──► [ PE2,0 ] ──► [ PE2,1 ] ──► [ PE2,2 ] ──► [ PE2,3 ]
+                             │             │             │             │
+                             ▼             ▼             ▼             ▼
+A_in[3] ──► [Skew 3] ──► [ PE3,0 ] ──► [ PE3,1 ] ──► [ PE3,2 ] ──► [ PE3,3 ]
 ```
+
+## Quick Start
+
+### Prerequisites
+* **Synthesis & Simulation:** AMD Xilinx Vivado (2025.2 or compatible)
+* **Golden Model Verification:** Python 3.x with NumPy (`pip install numpy`)
+
+---
+
+### 1. Verification & Simulation
+
+#### Option A: Command Line / Terminal
+```bash
+# Clone repository and enter directory
+git clone [https://github.com/pranavkorkonda2/systolic_array_accelerator.git](https://github.com/pranavkorkonda2/systolic_array_accelerator.git)
+cd systolic_array_accelerator
+
+# Run Python Golden Model to generate reference test vectors
+python python/golden_model.py
+
+# Launch Vivado behavioral simulation in batch mode
+vivado -mode batch -source -notrace -tclbatch - << 'EOF'
+open_project systolic_array_accelerator.xpr
+launch_simulation
+run all
+close_project
+EOF
+```
+#### Option B: Vivado GUI & Tcl Console
+Open Vivado, then open project `systolic_array_accelerator.xpr`.
+Run simulation via Tcl Console:
+```
+launch_simulation
+run all
+```
+Generate and verify test matrices in terminal:
+```bash
+python python/golden_model.py
+```
+
+### 2. Synthesis & Timing Verification
+Run full Synthesis, Implementation, and Report generation via command line or Vivado Tcl Console:
+```bash
+# Open project (skip if already open in GUI)
+open_project systolic_array_accelerator.xpr
+
+# Set target device
+set_property part xc7k70tfbv676-1 [current_project]
+
+# Run Synthesis & Implementation pipeline
+reset_run synth_1
+launch_runs synth_1 -jobs 4
+wait_on_run synth_1
+
+launch_runs impl_1 -to_step write_bitstream -jobs 4
+wait_on_run impl_1
+
+# Open implementation & display timing / utilization reports
+open_run impl_1
+report_timing_summary -file docs/timing_summary.rpt
+report_utilization -file docs/utilization_summary.rpt
+```
+
 
 ## Processing Element (PE) Design (`systolic_mac_pe.v`)
 
