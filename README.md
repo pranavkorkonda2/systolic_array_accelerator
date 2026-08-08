@@ -16,9 +16,9 @@ This accelerator addresses the memory bandwidth bottleneck of Von Neumann archit
 
 | Metric | Specification / Result | Impact / Engineering Note |
 | :--- | :--- | :--- |
-| **Grid Configuration** | $N = 4$, INT8 inputs, 32-bit accumulators | Fully parameterized (`DATA_W`, `ACC_W`, `N`) |
-| **Max Clock Frequency ($F_{\max}$)** | **146.11 MHz** ($T_{\min} = 6.84\text{ ns}$) | Synthesized & routed on Kintex-7 (`xc7k70tfbv676-1`) |
-| **Worst Negative Slack (WNS)** | **$+3.156\text{ ns}$** | Clean timing closure at 100 MHz target clock |
+| **Grid Configuration** | $N = 4$, INT8 inputs, 16-bit accumulators | Fully parameterized (`DATA_W`, `ACC_W`, `N`) |
+| **Max Clock Frequency ($F_{\max}$)** | **146.11 MHz** ($T_{\min} = 6.844\text{ ns}$) | Synthesized & routed on Kintex-7 (`xc7k70tfbv676-1`) |
+| **Worst Negative Slack (WNS)** | **$+3.156\text{ ns}$** | Clean timing closure at 100 MHz target clock (`sys_clock`) |
 | **Peak Throughput** | **4.675 GOP/s** @ $F_{\max}$ | Direct continuous systolic MAC pipelining |
 | **Logic Resource Cost** | 1,371 LUTs (3.34%), 572 FFs (0.70%) | Ultra-compact control logic & distributed MACs |
 | **Verification** | 100% Bit-Exact Match | Python Golden Model co-simulation framework |
@@ -54,33 +54,66 @@ A_in[3] ──► [Skew 3] ──► [ PE3,0 ] ──► [ PE3,1 ] ──► [ P
 
 ### 1. Verification & Simulation
 
-#### Option A: Command Line / Terminal
+#### Option A: Command Line Batch Mode (Cross-Platform / Automated)
+Runs testbenches (`tb_pe`, `tb_skew_network`, `tb_compute_mesh`, `tb_systolic_array`) sequentially and verifies against the Python Golden Model.
+
 ```bash
 # Clone repository and enter directory
 git clone [https://github.com/pranavkorkonda2/systolic_array_accelerator.git](https://github.com/pranavkorkonda2/systolic_array_accelerator.git)
 cd systolic_array_accelerator
 
-# Run Python Golden Model to generate reference test vectors
+# Generate reference test vectors and expected outputs
 python python/golden_model.py
 
-# Launch Vivado behavioral simulation in batch mode
-vivado -mode batch -source -notrace -tclbatch - << 'EOF'
-open_project systolic_array_accelerator.xpr
-launch_simulation
-run all
-close_project
-EOF
+# Execute all Verilog testbenches in Vivado batch mode
+vivado -mode batch -notrace -source run_all_tb.tcl
+
+# Verify hardware simulation output against Python Golden Model
+python python/golden_model.py
 ```
 #### Option B: Vivado GUI & Tcl Console
-Open Vivado, then open project `systolic_array_accelerator.xpr`.
-Run simulation via Tcl Console:
-```
-launch_simulation
-run all
-```
-Generate and verify test matrices in terminal:
-```bash
-python python/golden_model.py
+If you already have Vivado open, navigate to your project path before running commands:
+```Tcl
+# Navigate to repository root directory
+cd C:/Users/prana/systolic_array_accelerator
+
+# Open project
+open_project systolic_array_accelerator.xpr
+
+# Execute testbench batch suite
+source run_all_tb.tcl
+
+---
+
+### Add `run_all_tb.tcl` to Your Repository Root
+
+Create a file named `run_all_tb.tcl` in the root of your project directory (`systolic_array_accelerator/run_all_tb.tcl`) with this content:
+
+# Automatically locate and open the project relative to this Tcl script
+set script_dir [file dirname [file normalize [info script]]]
+cd $script_dir
+
+if {[catch {current_project}]} {
+    open_project systolic_array_accelerator.xpr
+}
+
+set testbenches {tb_pe tb_skew_network tb_compute_mesh tb_systolic_array}
+
+foreach tb $testbenches {
+    puts "\n=================================================="
+    puts " RUNNING TESTBENCH: $tb"
+    puts "==================================================\n"
+    set_property top $tb [get_filesets sim_1]
+    
+    # Close any open active simulation to release file locks
+    if {[get_sim_sets sim_1] ne "" && [current_sim] ne ""} {
+        close_sim -force
+    }
+    
+    launch_simulation
+}
+
+close_project
 ```
 
 ### 2. Synthesis & Timing Verification
@@ -137,7 +170,7 @@ Operands $A$ and $B$ along with control valid flags are registered on every cloc
 
 ## Systolic Compute Mesh Design (`systolic_compute_mesh.v`)
 
-The compute engine consists of a structural NxN spatial grid of PEs. Each PE maintains a stationary 32-bit accumulator while forwarding registered 8-bit operands ($A$ horizontally, $B$ vertically) alongside single-bit valid control signals. 
+The compute engine consists of a structural NxN spatial grid of PEs. Each PE maintains a stationary 16-bit accumulator while forwarding registered 8-bit operands ($A$ horizontally, $B$ vertically) alongside single-bit valid control signals. 
 
 Data streams diagonally through the array mesh, allowing each input element to be reused $N$ times across the spatial grid, significantly reducing external memory bandwidth requirements.
 
@@ -195,10 +228,30 @@ The execution lifecycle is governed by a 4-state controller:
 
 1. IDLE: Controller awaits `START` pulse.
 2. CLEAR: Asserts `CLEAR_ACC` for 1 clock cycle to clear all NxN accumulators prior to computation.
-3. COMPUTE: Enables dataflow into input skew network and tracks cycle latency (3N - 1 cycles).
+3. COMPUTE: Enables dataflow into the input skew network for a $3N$-cycle execution window; cycle_counter ranges from $0$ to $3N − 1$
 4. OUTPUT_VALID: Asserts `DONE` pulse, indicating complete matrix product C is stable on output buses.
 
 ---
+
+#### Mathematical Derivation of Systolic Latency
+
+For an $N \times N$ output-stationary systolic array with hardware input skewing:
+1. **Input Skewing Latency ($N - 1$ cycles):** Row $N-1$ and Column $N-1$ are delayed by $N - 1$ shift registers before entering the mesh.
+2. **Systolic Wavefront Propagation ($2N - 2$ cycles):** Data streams across $N$ rows and $N$ columns, taking $(N - 1) + (N - 1) = 2N - 2$ cycles to travel from $PE_{0,0}$ to $PE_{N-1,N-1}$.
+3. **Data Stream Length ($N$ cycles):** Feeding $N$ matrix elements takes $N$ cycles.
+
+$$\text{Theoretical Minimum Compute Latency} = (N - 1) + (N - 1) + N = 3N - 2 \quad \text{cycles}$$
+
+For $N = 4$, the theoretical minimum computational path completes in **10 cycles**.
+
+#### Implemented Controller Execution Lifecycle (14 Cycles Total)
+
+To ensure full register settlement and account for pipeline boundary registers, the RTL Controller (`controller_fsm.v`) allocates a $3N = 12\text{-cycle}$ execution window (`cycle_counter` from $0$ to $3N-1 = 11$):
+
+$$\text{Total Lifecycle Latency} = \underbrace{1\text{ cycle}}_{\text{CLEAR}} + \underbrace{12\text{ cycles}}_{\text{COMPUTE (3N)}} + \underbrace{1\text{ cycle}}_{\text{OUTPUT\_VALID}} = \mathbf{14\text{ cycles}}$$
+
+* **Average Throughput:** $\frac{64\text{ MACs}}{14\text{ cycles}} = \mathbf{4.57\text{ MACs/cycle}}$ across the entire execution pass.
+* **Peak Compute Efficiency:** $\frac{64\text{ MACs}}{12\text{ cycles}} = \mathbf{5.33\text{ MACs/cycle}}$ during the active COMPUTE window.
 
 ## Top-Level System Integration (`systolic_array_top.v`)
 
@@ -207,7 +260,7 @@ The systolic_array_top.v module wraps the Controller FSM, Input Skew Network, an
 ### Top-Level Interface & Execution Flow
     1. Data Buses: Accepts packed 32-bit input buses (A_in and B_in) containing N=4 parallel INT8 matrix streams.
     2. Control Flags: Driven by `CLK`, `RST`, and a single-cycle `START` trigger pulse.
-    3. Output Interface: Exposes a flattened 256-bit output bus (acc_out[255:0]) representing all N^2 32-bit accumulated matrix cells, gated by a DONE status flag and output `valid_out` lines.
+    3. Output Interface: Exposes a flattened 256-bit output bus (acc_out[255:0]) representing all N^2 16-bit accumulated matrix cells, gated by a DONE status flag and output `valid_out` lines.
 
 So, when `START` is pulsed high, the wrapper handles accumulator clearing, streams packed vectors through the input skewer, and asserts `DONE` once matrix multiplication completes.
 
@@ -266,14 +319,28 @@ Implemented in **AMD Xilinx Vivado 2025.2** targeting Kintex-7 (`xc7k70tfbv676-1
 
 ---
 
-## Architectural Performance Analysis
+### Architectural Performance Analysis
 
-### Latency and Throughput Metrics (N = 4)
+#### Operation Counting Convention & Definitions
 
-* **Total Operations:** N^3 = 64 MACs (128 FLOP equivalents)
-* **Latency:** 13 cycles (130.00 ns at 100 MHz, 88.97 ns at 146.11 MHz)
-* **Compute Efficiency:** 4.92 MACs/cycle average across execution pass (16 MACs/cycle peak array capability)
-* **Peak Compute Throughput:** **4.675 GOP/s** at F_max
+- **MAC-to-OP Equivalency:** $1\text{ MAC} = 2\text{ Operations}$ ($1\text{ multiply} + 1\text{ accumulate}$).
+- **Array Capacity ($N = 4$):** $N^2 = 16\text{ MACs/cycle} = 32\text{ OPs/cycle}$ peak array compute capacity.
+- **Matrix Workload ($4 \times 4$):** $N^3 = 64\text{ MACs} = 128\text{ total Operations}$ per matrix multiplication pass.
+
+#### Latency and Throughput Metrics
+
+- **Execution Latency Lifecycle:** 14 cycles total (140.00 ns @ 100 MHz, 95.81 ns @ 146.11 MHz)
+  - **CLEAR State:** 1 cycle (synchronous accumulator reset)
+  - **COMPUTE State:** 12 cycles ($3N$-cycle execution window, `cycle_counter` $0 \to 3N-1$)
+  - **OUTPUT\_VALID State:** 1 cycle (`DONE` pulse assertion)
+
+- **Compute Efficiency:**
+  - **Effective Compute-Window Efficiency:** $\frac{64\text{ MACs}}{12\text{ COMPUTE cycles}} = \mathbf{5.33\text{ MACs/cycle}}$ ($10.67\text{ OPs/cycle}$)
+  - **Effective End-to-End Efficiency:** $\frac{64\text{ MACs}}{14\text{ Total cycles}} = \mathbf{4.57\text{ MACs/cycle}}$ ($9.14\text{ OPs/cycle}$)
+
+- **Peak Array Compute Throughput:** **4.675 GOP/s** @ $F_{\max}$ ($146.11\text{ MHz} \times 32\text{ OPs/cycle}$)
+
+- **Effective End-to-End Matrix Throughput:** **1.336 GOP/s** @ $F_{\max}$ ($146.11\text{ MHz} \times 9.143\text{ OPs/cycle}$)
 
 ### Key Architectural Concepts & Trade-offs
 1. Spatial Computing vs. Von Neumann Architectures:
@@ -281,7 +348,7 @@ Implemented in **AMD Xilinx Vivado 2025.2** targeting Kintex-7 (`xc7k70tfbv676-1
 2. Output-Stationary Dataflow:
    In this design, partial sums remain stationary within PE accumulators while weights/inputs stream through. This minimizes register movement power for high-precision accumulators compared to weight-stationary or input-stationary configurations.
 3. Scalability & Bottlenecks:
-   A. I/O Routing Bottleneck: Flattened wide output buses (N^2 x ACC_W) scale quadricly with array dimension. For N >= 16 output serialization or AXI4 stream interfaces are required.
+   A. I/O Routing Bottleneck: Flattened wide output buses (N^2 x ACC_W) scale quadratically with array dimension. For N >= 16 output serialization or AXI4 stream interfaces are required.
    B. Clock Distribution Skew: Large spatial meshes require balanced clock trees to prevent setup/hold violations across array boundaries.
 
 ---
